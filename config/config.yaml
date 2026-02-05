@@ -1,0 +1,32 @@
+project:
+  name: "Car_Detection_Classification"
+  version: "1.0.0"
+
+paths:
+  data_dir: "data"
+  raw_data: "data/raw"
+  processed_data: "data/processed"
+  train_data: "data/train"
+  val_data: "data/val"
+  test_data: "data/test"
+  models_dir: "models"
+  results_dir: "results"
+
+detection:
+  model_type: "yolov8"  # Options: yolov8, faster_rcnn, retina_net
+  input_size: [640, 640]
+  confidence_threshold: 0.5
+  iou_threshold: 0.5
+  classes: ["car", "truck", "bus", "motorcycle"]
+
+classification:
+  model_type: "resnet50"  # Options: resnet50, efficientnet, mobilenet
+  num_classes: 10
+  car_types: ["sedan", "suv", "hatchback", "coupe", "convertible", 
+              "wagon", "van", "pickup", "bus", "truck"]
+
+training:
+  batch_size: 16
+  epochs: 50
+  learning_rate: 0.001
+  device: "cuda"  # or "cpu"
