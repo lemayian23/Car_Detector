@@ -4,6 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.getcwd(), os.pardir)))
 from src.helpers import load_config, setup_logging, set_seed
 from src.data.data_loader import create_dataloaders
 
+#model def
 def train_model():
     config = load_config()
     logger = setup_logging()
