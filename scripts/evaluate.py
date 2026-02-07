@@ -33,7 +33,7 @@ class ModelEvaluator:
             train=False, 
             img_size=self.config['detection']['input_size'][0]
         )
-        
+        #load car dataset
         val_dataset = CarDataset(
             image_dir=self.config['paths']['val_data'],
             label_dir=self.config['paths']['val_data'] / 'labels',
