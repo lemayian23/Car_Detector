@@ -1,0 +1,76 @@
+# Detection Model Hyperparameters
+detection:
+  yolo:
+    lr0: 0.01          # initial learning rate
+    lrf: 0.01          # final learning rate (lr0 * lrf)
+    momentum: 0.937    # SGD momentum
+    weight_decay: 0.0005
+    warmup_epochs: 3.0
+    warmup_momentum: 0.8
+    warmup_bias_lr: 0.1
+    box: 7.5          # box loss gain
+    cls: 0.5          # cls loss gain
+    dfl: 1.5          # dfl loss gain
+    hsv_h: 0.015      # image HSV-Hue augmentation
+    hsv_s: 0.7        # image HSV-Saturation augmentation
+    hsv_v: 0.4        # image HSV-Value augmentation
+    degrees: 0.0      # image rotation
+    translate: 0.1    # image translation
+    scale: 0.5        # image scale
+    shear: 0.0        # image shear
+    perspective: 0.0  # image perspective
+    flipud: 0.0       # image flip up-down
+    fliplr: 0.5       # image flip left-right
+    mosaic: 1.0       # image mosaic
+    mixup: 0.0        # image mixup
+  
+  faster_rcnn:
+    learning_rate: 0.005
+    momentum: 0.9
+    weight_decay: 0.0001
+    gamma: 0.1        # LR scheduler gamma
+    step_size: 3      # LR scheduler step size
+
+# Classification Model Hyperparameters
+classification:
+  resnet50:
+    learning_rate: 0.001
+    batch_size: 32
+    weight_decay: 0.0001
+    dropout_rate: 0.5
+    optimizer: "adam"
+    scheduler: "cosine"
+    warmup_epochs: 5
+  
+  efficientnet:
+    learning_rate: 0.0005
+    batch_size: 16
+    weight_decay: 0.00001
+    dropout_rate: 0.3
+
+# Training Schedule
+training_schedule:
+  early_stopping_patience: 10
+  lr_patience: 5
+  min_lr: 1e-6
+  max_epochs: 100
+  checkpoint_frequency: 5
+  validation_frequency: 1
+
+# Data Augmentation
+augmentation:
+  enabled: true
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+  geometric:
+    rotation: 15
+    translation: 0.1
+    scale: [0.8, 1.2]
+    shear: 10
+  advanced:
+    cutmix_prob: 0.5
+    mixup_prob: 0.5
+    mosaic_prob: 1.0
