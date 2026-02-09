@@ -31,7 +31,8 @@ detection:
     gamma: 0.1        # LR scheduler gamma
     step_size: 3      # LR scheduler step size
 
-# Classification Model Hyperparameters
+
+#model params
 classification:
   resnet50:
     learning_rate: 0.001
