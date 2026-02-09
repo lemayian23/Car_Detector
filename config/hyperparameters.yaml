@@ -1,4 +1,5 @@
-# Detection Model Hyperparameters
+
+#Detection params(model)
 detection:
   yolo:
     lr0: 0.01          # initial learning rate
