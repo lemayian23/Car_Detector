@@ -48,7 +48,8 @@ classification:
     weight_decay: 0.00001
     dropout_rate: 0.3
 
-# Training Schedule
+
+#training schedule
 training_schedule:
   early_stopping_patience: 10
   lr_patience: 5
