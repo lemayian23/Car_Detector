@@ -173,7 +173,7 @@ class CarDetectionApp:
             self.screenshot_btn.configure(state='disabled')
             self.video_label_configure(image='')
 
-        def update_frame(self):
+    def update_frame(self):
             """Update video frame. """
             if self.is_running:
                 ret, frame = self.camera.read()
@@ -204,7 +204,7 @@ class CarDetectionApp:
 
                 self.window.after(10, self.update_frame)
 
-        def draw_detections(self, frame, detections):
+    def draw_detections(self, frame, detections):
             """Draw detection boxes and labels. """
             colors = [(255,0,0), (0,255,0), (0,0,255),
                         (255, 255, 0), (255, 0, 255),(0, 255, 255)]
@@ -231,4 +231,12 @@ class CarDetectionApp:
 
 
                 #Draw label text
-                
+                cv2.putText(frame, label, (x1, y1 -5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                #Add emoji for fun
+                emojis = {"car": "🚗", "truck": "🚛", "bus": "🚌", "motorcycle": "🏍"}
+                emoji = emojis.get(class_name.lower(), "🚘")
+                cv2.putText(frame, emoji, (x2 - 30, y1- 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255), 2)
+
+            return frame
+        
