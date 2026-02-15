@@ -78,4 +78,29 @@ class CarDetectionApp:
         right_frame.grid(row=0, column=1, padx=5, pady=5. sticky=(tk.N,tk.S))
 
         #Detection settings
-        settings_frame = ttk.LabelFrame(right_frame, text=)
+        settings_frame = ttk.LabelFrame(right_frame, text="⚙ Settings", padding = "10")
+        settings_frame.grid(row=0 column=0, pady=5, sticky=(tk.W, tk.E))
+        ttk.Label(settings_frame, text="Confidence:".grid(row=0, column=0, sticky=tk.W))
+        self.confidence_var = tk.Double(value=0.5)
+        self.confidence_scale = ttk.Scale(
+            settings_frame,
+            from_ 0.1, to=1.0,
+            variable=self.confidence_var,
+            orient=tk.HORIZONTAL,
+                length=200
+        )
+        self.confidence_scale.grid(row=0, column=1,padx=5)
+        self.confidence_label= ttk.Label(settings_frame, text="0.5")
+        self.confidence_label.grid(row=0, column=2)
+
+        self.confidence_scale.configure(command=lambda x: self.confidence_label.configure(text=f"{float(x):.2f}"))
+
+
+        #Live stats
+        stats_frame = ttk.LabelFrame(right_frame, text="📊 Live Stats", padding="10")
+        stats_frame.grid(row=1, column=0, pady=10, sticky=(tk.W, tk.E))
+
+        self.stats_text = tk.text(stats_frame,height=10.width=40,font=("Courier", 10))
+        self.stats_text.grid(row=0,column=0)
+
+        
