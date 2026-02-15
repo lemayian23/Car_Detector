@@ -103,4 +103,132 @@ class CarDetectionApp:
         self.stats_text = tk.text(stats_frame,height=10.width=40,font=("Courier", 10))
         self.stats_text.grid(row=0,column=0)
 
-        
+        #Detection log
+        log_frame = ttk.LabelFrame(right_frame, text="📝 Detection Log", padding="10")
+        log_frame.grid(row=2, column=0, pady=5,sticky=(tk.W, tk.E, tk.S))
+
+        self.log_text=tk.Text(log_frame, height=15, width=40, font=("Courier", 9))
+        self.log_text.grid(row=0, column=0)
+
+        scrollbar.grid(row=0,column=1, sticky=(tk.N, tk.S))
+        self.log_text.configure(yscrollcommand=scrollbar.set)
+
+        #Fun facts
+        self.fact_label = ttk.Label(
+            right_frame,
+            text ="Did you know? The fastest car in the world is the SSC Tuatara at 316 mph!",
+            wraplength=350,
+            font=("Arial", 10, "italic")
+        )
+        self.fact_label.grid(row=3, column =0, pady =10)
+
+        #Bind close event
+        self.window.protocal("WM_DELETE_WINDOW", self.on_closing)
+
+        def_load_models(self):
+            """Load detection and classification models. """
+            try:
+                self.detector = CarDetector(
+                    model_type=self.config['detection']['model_type'],
+                    config=self.config
+                )
+                self.log("✅ Detector loaded successfully!")
+            except Exception as e:
+                self.log(f"⚠ Detector not loaded:{e}")
+
+            try:
+                self.classifier = CarClasifier(
+                    num_classes= len(self.config['classification']['car_types']),
+                    model_type=self.config['classification']['model_type'],
+                    config=self.config
+                )
+                self.log("✅ Classifier loaded successfully!")
+            except Exception as e:
+                self.log(f"⚠ Classifier not loaded: {e}")
+
+        def toggle_camera(self):
+            """Start or stop the camera."""
+            if not self.is_running:
+                self.start_camera()
+            else:
+                self.stop_camera()
+
+        def start_camera(self):
+            """Sart the camera feed. """
+            self.camera= cv2.VideoCapture(0)
+            if not self.camera.isOpened():
+                self.log("❌ Could not open camera!")
+                return
+
+            self.is_running = Trueself.start_btn.configure(text="|| Stop Camera")
+            self.screenshot_btn.configure(state='normal')
+            self.update_frame()
+
+        def stop_camera(self):
+            """Stop the camera feed. """
+            self.is_running = False
+            if self.camera:
+                self.camera.release()
+            self.start_btn_configure(text="▶ Start Camera")
+            self.screenshot_btn.configure(state='disabled')
+            self.video_label_configure(image='')
+
+        def update_frame(self):
+            """Update video frame. """
+            if self.is_running:
+                ret, frame = self.camera.read()
+                if ret:
+                    self.current_frame = frame.copy()
+
+                    #Detect cars
+                    if self.detector:
+                        detections = self.detector.detect(
+                            frame,
+                            confidence=self.confidence_var.get()
+                        )
+
+                    #Draw detection
+                    frame = self.draw_detections(frame, detections)
+
+                    #Update stats
+                    self.update_stats(detections)
+
+                #Convert for display
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(frame_rgb)
+                img = img.resize((640, 480))
+                imgtk = ImageTk.PhotoImage(image=img)
+
+                self.video_label.imgtk = imgtk
+                self.video_label.configure(image=imgtk)
+
+                self.window.after(10, self.update_frame)
+
+        def draw_detections(self, frame, detections):
+            """Draw detection boxes and labels. """
+            colors = [(255,0,0), (0,255,0), (0,0,255),
+                        (255, 255, 0), (255, 0, 255),(0, 255, 255)]
+
+            for det in detections:
+                x1, y1, x2, y2 = map(int, det['bbox'])
+                class_name = det['class_name']
+                confidence = det['confidence']
+
+                #Random color based on class
+                color = colors[hash(class_name) % len(colors)]
+
+                #Draw bounding box
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
+                #Draw label background
+
+                label = f"{class_name}: {confidence:.2f}"
+                label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+                cv2.rectangle(frame,
+                              (x1, y1 - label_size[1] - 10),
+                              (x1+ label_size[0], y1),
+                              color, -1)
+
+
+                #Draw label text
+                
