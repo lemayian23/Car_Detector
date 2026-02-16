@@ -1,168 +1,309 @@
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
-import random
+import tkinter as tk
+from tkinter import ttk, filedialog
+from PIL import Image, ImageTk
+import threading
+import time
+from pathlib import Path
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-class FunImageProcessor:
-    """Add fun effects to car detection images."""
+from src.models.detector import CarDetector
+from src.models.classifier import CarClassifier
+from src.utils.helpers import load_config
+
+class CarDetectionApp:
+    """Fun webcam application for car detection."""
     
     def __init__(self):
-        self.filters = {
-            'cartoon': self.cartoon_effect,
-            'vintage': self.vintage_effect,
-            'neon': self.neon_effect,
-            'thermal': self.thermal_effect,
-            'pixelate': self.pixelate_effect,
-            'sketch': self.sketch_effect,
-            'oil_painting': self.oil_painting_effect,
-            'emboss': self.emboss_effect
-        }
+        self.config = load_config()
+        self.window = tk.Tk()
+        self.window.title("🚗 Car Detection Fun App 🚗")
+        self.window.geometry("1200x800")
         
-        self.stickers = ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎', '🚓', '🚑', '🚒', '🚐']
+        # Initialize models
+        self.detector = None
+        self.classifier = None
+        self.camera = None
+        self.is_running = False
+        self.current_frame = None
+        
+        # Statistics
+        self.detection_count = 0
+        self.car_types_count = {}
+        
+        self.setup_ui()
+        self.load_models()
     
-    def cartoon_effect(self, image):
-        """Apply cartoon effect."""
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    def setup_ui(self):
+        """Setup the user interface."""
+        # Main frame
+        main_frame = ttk.Frame(self.window, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        # Apply median blur
-        gray = cv2.medianBlur(gray, 5)
+        # Left panel - Video feed
+        left_frame = ttk.Frame(main_frame)
+        left_frame.grid(row=0, column=0, padx=5, pady=5)
         
-        # Detect edges
-        edges = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
-            cv2.THRESH_BINARY, 9, 9
+        self.video_label = ttk.Label(left_frame)
+        self.video_label.grid(row=0, column=0)
+        
+        # Control buttons
+        control_frame = ttk.Frame(left_frame)
+        control_frame.grid(row=1, column=0, pady=10)
+        
+        self.start_btn = ttk.Button(
+            control_frame, 
+            text="▶ Start Camera", 
+            command=self.toggle_camera,
+            width=15
         )
+        self.start_btn.grid(row=0, column=0, padx=5)
         
-        # Color quantization
-        color = cv2.bilateralFilter(image, 9, 300, 300)
+        self.screenshot_btn = ttk.Button(
+            control_frame,
+            text="📸 Screenshot",
+            command=self.take_screenshot,
+            width=15,
+            state='disabled'
+        )
+        self.screenshot_btn.grid(row=0, column=1, padx=5)
         
-        # Combine
-        cartoon = cv2.bitwise_and(color, color, mask=edges)
+        # Right panel - Info and stats
+        right_frame = ttk.Frame(main_frame, width=400)
+        right_frame.grid(row=0, column=1, padx=5, pady=5, sticky=(tk.N, tk.S))
         
-        return cartoon
+        # Detection settings
+        settings_frame = ttk.LabelFrame(right_frame, text="⚙ Settings", padding="10")
+        settings_frame.grid(row=0, column=0, pady=5, sticky=(tk.W, tk.E))
+        
+        ttk.Label(settings_frame, text="Confidence:").grid(row=0, column=0, sticky=tk.W)
+        self.confidence_var = tk.DoubleVar(value=0.5)
+        self.confidence_scale = ttk.Scale(
+            settings_frame,
+            from_=0.1, to=1.0,
+            variable=self.confidence_var,
+            orient=tk.HORIZONTAL,
+            length=200
+        )
+        self.confidence_scale.grid(row=0, column=1, padx=5)
+        self.confidence_label = ttk.Label(settings_frame, text="0.5")
+        self.confidence_label.grid(row=0, column=2)
+        
+        self.confidence_scale.configure(command=lambda x: self.confidence_label.configure(text=f"{float(x):.2f}"))
+        
+        # Live stats
+        stats_frame = ttk.LabelFrame(right_frame, text="📊 Live Stats", padding="10")
+        stats_frame.grid(row=1, column=0, pady=10, sticky=(tk.W, tk.E))
+        
+        self.stats_text = tk.Text(stats_frame, height=10, width=40, font=("Courier", 10))
+        self.stats_text.grid(row=0, column=0)
+        
+        # Detection log
+        log_frame = ttk.LabelFrame(right_frame, text="📝 Detection Log", padding="10")
+        log_frame.grid(row=2, column=0, pady=5, sticky=(tk.W, tk.E, tk.S))
+        
+        self.log_text = tk.Text(log_frame, height=15, width=40, font=("Courier", 9))
+        self.log_text.grid(row=0, column=0)
+        
+        scrollbar = ttk.Scrollbar(log_frame, orient=tk.VERTICAL, command=self.log_text.yview)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.log_text.configure(yscrollcommand=scrollbar.set)
+        
+        # Fun facts
+        self.fact_label = ttk.Label(
+            right_frame, 
+            text="Did you know? The fastest car in the world is the SSC Tuatara at 316 mph!",
+            wraplength=350,
+            font=("Arial", 10, "italic")
+        )
+        self.fact_label.grid(row=3, column=0, pady=10)
+        
+        # Bind close event
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
     
-    def vintage_effect(self, image):
-        """Apply vintage sepia effect."""
-        # Create sepia kernel
-        kernel = np.array([[0.393, 0.769, 0.189],
-                          [0.349, 0.686, 0.168],
-                          [0.272, 0.534, 0.131]])
+    def load_models(self):
+        """Load detection and classification models."""
+        try:
+            self.detector = CarDetector(
+                model_type=self.config['detection']['model_type'],
+                config=self.config
+            )
+            self.log("✅ Detector loaded successfully!")
+        except Exception as e:
+            self.log(f"⚠ Detector not loaded: {e}")
         
-        sepia = cv2.transform(image, kernel)
-        sepia = np.clip(sepia, 0, 255).astype(np.uint8)
-        
-        # Add vignette effect
-        rows, cols = image.shape[:2]
-        kernel_x = cv2.getGaussianKernel(cols, 200)
-        kernel_y = cv2.getGaussianKernel(rows, 200)
-        kernel = kernel_y * kernel_x.T
-        mask = 255 * kernel / np.linalg.norm(kernel)
-        
-        for i in range(3):
-            sepia[:, :, i] = sepia[:, :, i] * mask
-        
-        return sepia
+        try:
+            self.classifier = CarClassifier(
+                num_classes=len(self.config['classification']['car_types']),
+                model_type=self.config['classification']['model_type'],
+                config=self.config
+            )
+            self.log("✅ Classifier loaded successfully!")
+        except Exception as e:
+            self.log(f"⚠ Classifier not loaded: {e}")
     
-    def neon_effect(self, image):
-        """Apply neon effect."""
-        # Convert to grayscale
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Detect edges
-        edges = cv2.Canny(gray, 50, 150)
-        
-        # Dilate edges
-        kernel = np.ones((2, 2), np.uint8)
-        edges = cv2.dilate(edges, kernel, iterations=1)
-        
-        # Create neon effect
-        neon = np.zeros_like(image)
-        
-        # Random colors for edges
-        colors = [(0, 255, 255), (255, 0, 255), (255, 255, 0),
-                 (0, 255, 0), (255, 0, 0), (0, 0, 255)]
-        
-        for i in range(3):
-            neon[:, :, i] = edges * random.randint(100, 255)
-        
-        return neon
+    def toggle_camera(self):
+        """Start or stop the camera."""
+        if not self.is_running:
+            self.start_camera()
+        else:
+            self.stop_camera()
     
-    def thermal_effect(self, image):
-        """Apply thermal camera effect."""
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    def start_camera(self):
+        """Start the camera feed."""
+        self.camera = cv2.VideoCapture(0)
+        if not self.camera.isOpened():
+            self.log("❌ Could not open camera!")
+            return
         
-        # Apply colormap
-        thermal = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
-        
-        return thermal
+        self.is_running = True
+        self.start_btn.configure(text="⏸ Stop Camera")
+        self.screenshot_btn.configure(state='normal')
+        self.update_frame()
     
-    def pixelate_effect(self, image, pixel_size=10):
-        """Apply pixelation effect."""
-        height, width = image.shape[:2]
-        
-        # Resize down
-        temp = cv2.resize(image, (width // pixel_size, height // pixel_size),
-                         interpolation=cv2.INTER_LINEAR)
-        
-        # Resize up
-        pixelated = cv2.resize(temp, (width, height),
-                              interpolation=cv2.INTER_NEAREST)
-        
-        return pixelated
+    def stop_camera(self):
+        """Stop the camera feed."""
+        self.is_running = False
+        if self.camera:
+            self.camera.release()
+        self.start_btn.configure(text="▶ Start Camera")
+        self.screenshot_btn.configure(state='disabled')
+        self.video_label.configure(image='')
     
-    def sketch_effect(self, image):
-        """Apply pencil sketch effect."""
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Invert
-        inverted = cv2.bitwise_not(gray)
-        
-        # Apply Gaussian blur
-        blurred = cv2.GaussianBlur(inverted, (21, 21), 0)
-        
-        # Divide
-        sketch = cv2.divide(gray, 255 - blurred, scale=256)
-        
-        # Stack to 3 channels
-        sketch = cv2.cvtColor(sketch, cv2.COLOR_GRAY2BGR)
-        
-        return sketch
+    def update_frame(self):
+        """Update video frame."""
+        if self.is_running:
+            ret, frame = self.camera.read()
+            if ret:
+                self.current_frame = frame.copy()
+                
+                # Detect cars
+                if self.detector:
+                    detections = self.detector.detect(
+                        frame,
+                        confidence=self.confidence_var.get()
+                    )
+                    
+                    # Draw detections
+                    frame = self.draw_detections(frame, detections)
+                    
+                    # Update stats
+                    self.update_stats(detections)
+                
+                # Convert for display
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                img = Image.fromarray(frame_rgb)
+                img = img.resize((640, 480))
+                imgtk = ImageTk.PhotoImage(image=img)
+                
+                self.video_label.imgtk = imgtk
+                self.video_label.configure(image=imgtk)
+            
+            self.window.after(10, self.update_frame)
     
-    def oil_painting_effect(self, image):
-        """Apply oil painting effect."""
-        # Apply bilateral filter multiple times
-        result = image.copy()
-        for _ in range(3):
-            result = cv2.bilateralFilter(result, 9, 75, 75)
-        
-        return result
-    
-    def emboss_effect(self, image):
-        """Apply emboss effect."""
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        
-        # Emboss kernel
-        kernel = np.array([[-2, -1, 0],
-                          [-1, 1, 1],
-                          [0, 1, 2]])
-        
-        emboss = cv2.filter2D(gray, -1, kernel)
-        emboss = cv2.cvtColor(emboss, cv2.COLOR_GRAY2BGR)
-        
-        return emboss
-    
-    def add_stickers(self, image, detections):
-        """Add fun stickers to detected cars."""
-        result = image.copy()
+    def draw_detections(self, frame, detections):
+        """Draw detection boxes and labels."""
+        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), 
+                  (255, 255, 0), (255, 0, 255), (0, 255, 255)]
         
         for det in detections:
             x1, y1, x2, y2 = map(int, det['bbox'])
+            class_name = det['class_name']
+            confidence = det['confidence']
             
-            # Random sticker
-            sticker = random.choice(self.stickers)
+            # Random color based on class
+            color = colors[hash(class_name) % len(colors)]
             
-            # Add sticker using PIL
-            pil_img = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
-            draw = ImageDraw.Draw(pil_img)
+            # Draw bounding box
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             
+            # Draw label background
+            label = f"{class_name}: {confidence:.2f}"
+            label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+            cv2.rectangle(frame, 
+                         (x1, y1 - label_size[1] - 10),
+                         (x1 + label_size[0], y1),
+                         color, -1)
+            
+            # Draw label text
+            cv2.putText(frame, label, (x1, y1 - 5),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            
+            # Add emoji for fun
+            emojis = {"car": "🚗", "truck": "🚛", "bus": "🚌", "motorcycle": "🏍"}
+            emoji = emojis.get(class_name.lower(), "🚘")
+            cv2.putText(frame, emoji, (x2 - 30, y1 - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+        
+        return frame
+    
+    def update_stats(self, detections):
+        """Update statistics."""
+        self.detection_count += len(detections)
+        
+        for det in detections:
+            class_name = det['class_name']
+            self.car_types_count[class_name] = self.car_types_count.get(class_name, 0) + 1
+        
+        # Update stats text
+        self.stats_text.delete(1.0, tk.END)
+        self.stats_text.insert(tk.END, f"Total Detections: {self.detection_count}\n\n")
+        self.stats_text.insert(tk.END, "Car Types Detected:\n")
+        
+        for car_type, count in sorted(self.car_types_count.items(), key=lambda x: x[1], reverse=True):
+            bar = "█" * min(int(count / max(1, max(self.car_types_count.values())) * 20), 20)
+            self.stats_text.insert(tk.END, f"{car_type:12} {bar} {count}\n")
+        
+        # Log new detections
+        for det in detections[-3:]:  # Log last 3
+            self.log(f"🎯 {det['class_name']} - {det['confidence']:.2f}")
+    
+    def log(self, message):
+        """Add message to log."""
+        timestamp = time.strftime("%H:%M:%S")
+        self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.log_text.see(tk.END)
+        
+        # Keep last 100 messages
+        lines = self.log_text.get(1.0, tk.END).split('\n')
+        if len(lines) > 100:
+            self.log_text.delete(1.0, 2.0)
+    
+    def take_screenshot(self):
+        """Take a screenshot with detections."""
+        if self.current_frame is not None:
+            # Save screenshot
+            screenshots_dir = Path("results/screenshots")
+            screenshots_dir.mkdir(parents=True, exist_ok=True)
+            
+            filename = screenshots_dir / f"screenshot_{time.strftime('%Y%m%d_%H%M%S')}.jpg"
+            cv2.imwrite(str(filename), self.current_frame)
+            
+            self.log(f"📸 Screenshot saved: {filename}")
+            
+            # Show fun message
+            self.fact_label.configure(
+                text=f"📸 Screenshot saved! Check results/screenshots folder!"
+            )
+            self.window.after(3000, lambda: self.fact_label.configure(
+                text="Did you know? The fastest car in the world is the SSC Tuatara at 316 mph!"
+            ))
+    
+    def on_closing(self):
+        """Handle window closing."""
+        self.stop_camera()
+        self.window.destroy()
+    
+    def run(self):
+        """Run the application."""
+        self.window.mainloop()
+
+def main():
+    app = CarDetectionApp()
+    app.run()
+
+if __name__ == "__main__":
+    main()
