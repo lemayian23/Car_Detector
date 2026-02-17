@@ -197,4 +197,17 @@ def add_game_overlay(self, frame, time_left, fps):
 
     return frame
 
+def add_sparkle_effect(self, frame, x1, y1, x2, y2):
+    """Add sparkle effect around target. """
+    center_x = (x1 + x2) //2
+    center_y = (y1 + y2) //2
 
+    for _ in range(5):
+        angle = random.uniform(0, 2 * np.pi)
+        distance = random.randint(20,40)
+
+        sparkle_x = int(center_x + distance * np.cos(angle))
+        sparkle_y = int(center_y + distance * np.sin(angle))
+
+        #Draw sparkle
+        
