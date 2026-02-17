@@ -161,3 +161,40 @@ def add_game_overlay(self, frame, time_left, fps):
     #Semi-transparent overlay for text
     cv2.rectangle(overlay, (0,0), (width, 60), (0, 0, 0), -1)
     cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
+
+    #Game info
+    info_text = f"Score: {self.score} Level: {self.level} Time: {int(time_left)}s"
+    cv2.putText(frame, info_text, (10, 30), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+    #Target info
+    target_text = f"Find: {self.target_car}"
+    target_size = cv2.getTextSize(target_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+    target_x = width - target_size[0] - 10
+    cv2.putText(frame, target_text, (target_x, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+
+    #Progress bar
+    bar_width = 200
+    bar_height = 20
+    bar_x = (widt - bar_width) //2
+    bar_y = height - 40
+
+    #Background
+    cv2.rectangle(frame, (bar_x, bar_y),
+                    (bar_x + bar_width, bar_y + bar_height),
+                    (100, 100,100), -1)
+    
+    #Progress
+    progress_width = int(bar_width * (self.targets_found / 100))
+    cv2.rectangle(frame, (bar_x, bar_y),
+                    (bar_x + progress_width, bar_y + bar_height),
+                    (0, 255, 0), -1)
+
+    #FPS
+    cv2.putText(frame, f"FPS: {fps}", (10, height - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0, 255, 0), 1)
+
+    return frame
+
+
