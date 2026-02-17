@@ -103,4 +103,61 @@ def start_game(self, source = 0):
         cv2.imshow("I Spy Car Game", frame)
 
         #Check for key presses
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            break
+        elif key == ord('p'):
+            cv2.waitKey(0) #Pause
+        elif key == ord('n'):
+            self.set_new_target() #New target
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+def process_game_frame(self, frame, detections):
+    """Process frame for game logic. """
+    found_target = False
+
+    for det in detections:
+        x1, y1,x2, y2 = map(int, det['bbox'])
+        class_name = det['class_name']
         
+        #Check if this is our target
+        if class_name.lower() ==self.target_car.lower():
+            found_target = True
+
+            #Draw special target box
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 255), 3)
+
+            #Add sparkle effect
+            self.add_sparkle_effect(frame, x1, y1, x2, y2)
+
+            #Increment score while target is visivle
+            self.score += 1
+
+            #Level up every 100 points
+            if self.score % 100 == 0:
+                self.level_up()
+        else:
+            #Draw normal box for other cars
+            cv2.rectangle(frame, (x1,y1), (x2, y2), (0, 255, 0), 2)
+
+        #Add  label
+        label = f"{class_name}: {det['confidence']:.2f}"
+        cv2.putText(frame, label, (x1, y1-10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+    #Update target progress
+    if found_target:
+        self.targets_found = min(self.targets_found + 1, 100)
+
+    return frame, found_target
+
+def add_game_overlay(self, frame, time_left, fps):
+    """Add game information overlay. """
+    overlay = frame.copy()
+    height, width = frame.shape[:2]
+
+    #Semi-transparent overlay for text
+    cv2.rectangle(overlay, (0,0), (width, 60), (0, 0, 0), -1)
+    cv2.addWeighted(overlay, 0.5, frame, 0.5, 0, frame)
