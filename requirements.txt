@@ -1,0 +1,31 @@
+#Core
+torch>=2.0.0
+torchvision>=0.15.0
+opencv-python>4.8.0
+numpy>=2.0.0
+
+#Computer Vision
+ultralytics>3.0.0 # For YOLO
+mmdetection>3.0.0 #  Optional for advanced detectors
+detectron2>0.6 #Optional from Facebook Research
+
+#Data Handling
+pillow>=10.0.0
+scikit-image>=0.21.0
+albumentations>=1.3.0
+
+#Utilities
+matplotlib>=3.7.0
+seaborn>=0.12.0
+tqdm>=6.0
+easydict>=0.7.0
+
+#Evaluation
+scikit-learn>=1.3.0
+pycocotools>=2.0.0
+
+# Additional requirements
+scikit-image>=0.21.0  # For LBP features
+ipywidgets>=8.0.0     # For interactive notebooks
+jupyter>=1.0.0        # For notebooks
+Pillow>=10.0.0        # For image processing
