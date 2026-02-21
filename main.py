@@ -59,6 +59,51 @@ def main():
             confidence=config['detection']['confidence_threshold']
         )
         logger.info(f"Detections: {detections}")
+
+        # In your main detection script
+from src.utils.car_sound import CarSoundEffects
+from src.utils.car_emoji import CarEmojiOverlay
+from src.utils.car_counter import SimpleCarCounter
+from src.utils.car_color import CarColorDetector
+from src.utils.fun_filters import QuickFilters
+from src.utils.simple_logger import SimpleLogger
+
+# Initialize features
+sound = CarSoundEffects()
+emoji = CarEmojiOverlay()
+counter = SimpleCarCounter()
+color_detector = CarColorDetector()
+logger = SimpleLogger()
+filter_mode = 'normal'
+
+# In your detection loop:
+for det in detections:
+    # Play sound (optional)
+    if det['confidence'] > 0.7:
+        sound.play_detection_sound(det['class_name'])
+    
+    # Log detection
+    logger.log_detection(det)
+    
+    # Get car crop for color detection
+    x1, y1, x2, y2 = map(int, det['bbox'])
+    car_crop = frame[y1:y2, x1:x2]
+    color = color_detector.detect_color(car_crop)
+
+# Update counter
+counter.update(detections)
+
+# Add emoji overlays
+frame = emoji.add_emoji(frame, detections)
+
+# Apply filter
+if filter_mode == 'night_vision':
+    frame = QuickFilters.night_vision(frame)
+elif filter_mode == 'thermal':
+    frame = QuickFilters.thermal(frame)
+
+# Show stats
+print(counter.get_stats())
     else:
         logger.error("Invalid mode or missing image path for inference.")
 if __name__ == "__main__":
